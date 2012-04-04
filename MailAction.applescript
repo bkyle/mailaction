@@ -42,10 +42,48 @@ using terms from application "Mail"
 		set theText to theSubject & return & content of theMessage
 		tell application "OmniFocus"
 			tell default document
-				parse tasks with transport text theText as single task singleTask
+				set theTask to parse tasks with transport text theText as single task singleTask
+				my add_attachments_to_task(theMessage, theTask)
 			end tell
 		end tell
 	end process_message
+	
+	on add_attachments_to_task(theMessage, theTaskList)
+		using terms from application "OmniFocus"
+				set t to item 1 of theTaskList
+				tell note of t
+					using terms from application "Mail"
+						repeat with theAttachment in mail attachments of theMessage
+							
+							set theAttachmentPath to "/tmp/" & name of theAttachment
+							
+							-- Ensure that there isn't already a file in /tmp with the name we want.
+							-- This really shouldn't delete existing files, instead a new 
+							try
+								tell application "Finder" to delete POSIX file theAttachmentPath as string
+							end try
+							
+							try
+								save theAttachment in theAttachmentPath
+							on error
+								-- Failed the save the attachment, we should just bail here
+							end try
+							
+							try
+								using terms from application "OmniFocus"
+									set theRTFAttachment to make new file attachment with properties {file name:theAttachmentPath, embedded:true}
+									insert theRTFAttachment
+								end using terms from
+							end try
+							
+							try
+								tell application "Finder" to delete POSIX file theAttachmentPath as string
+							end try
+						end repeat
+					end using terms from
+				end tell
+		end using terms from
+	end add_attachments_to_task
 	
 	on perform mail action with messages theMessages
 		try
